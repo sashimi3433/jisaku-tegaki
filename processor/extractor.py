@@ -101,9 +101,8 @@ class CharacterExtractor:
         inner_margin = 15
         cell = cell[inner_margin:-inner_margin, inner_margin:-inner_margin]
         
-        # 2. グレースケール化とノイズ抑制
+        # 2. グレースケール化
         gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
-        gray = cv2.medianBlur(gray, 3) # 小さな点ノイズを軽減
         
         # 3. 二値化（大津の二値化）
         _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -113,7 +112,8 @@ class CharacterExtractor:
         
         # 背景（label=0）以外の成分をチェック
         # stats[i, cv2.CC_STAT_AREA] はその成分の面積
-        min_area = 150 # 閾値：これ以下の面積のものはゴミとして除去
+        # 濁点などの小さな点を残すため、閾値を下げる (150 -> 30)
+        min_area = 30 
         
         output = np.zeros_like(thresh)
         found_character = False
@@ -123,8 +123,8 @@ class CharacterExtractor:
                 output[labels == i] = 255
                 found_character = True
         
-        # 5. 何も残らなかった場合や、あまりに白い部分が少ない場合は空とみなす
-        if not found_character or cv2.countNonZero(output) < 300:
+        # 5. 空判定の閾値も少し下げる
+        if not found_character or cv2.countNonZero(output) < 100:
             return None
             
         return output
