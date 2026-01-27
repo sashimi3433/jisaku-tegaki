@@ -7,7 +7,7 @@ class CharacterExtractor:
         self.grid_size = grid_size
         self.margin = margin
 
-    def process(self, image_path, output_dir="extracted"):
+    def process(self, image_path, page=0, output_dir="extracted"):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -35,7 +35,8 @@ class CharacterExtractor:
                 char_img = self._preprocess_char(cell)
                 
                 if char_img is not None:
-                    char_path = os.path.join(output_dir, f"char_{y}_{x}.png")
+                    # Filename includes page index to support multiple pages
+                    char_path = os.path.join(output_dir, f"char_{page}_{y}_{x}.png")
                     cv2.imwrite(char_path, char_img)
                     extracted_chars.append(char_path)
         
@@ -80,31 +81,53 @@ class CharacterExtractor:
         bl = points[np.argmax(diff)]
         
         src = np.float32([tl, tr, bl, br])
+        # マーカーの中心を基準に、少し外側の座標（0, 0など）へ投影するように調整
         dst = np.float32([[100, 100], [2380, 100], [100, 3408], [2380, 3408]])
         
         M = cv2.getPerspectiveTransform(src, dst)
         warped = cv2.warpPerspective(img, M, (2480, 3508))
         
+        # 投影後の画像からマーカーを白く塗りつぶして消去する（念のため）
+        # マーカーの周辺（100x100付近）を白で埋める
+        cv2.rectangle(warped, (0, 0), (150, 150), (255, 255, 255), -1) # 左上
+        cv2.rectangle(warped, (2330, 0), (2480, 150), (255, 255, 255), -1) # 右上
+        cv2.rectangle(warped, (0, 3358), (150, 3508), (255, 255, 255), -1) # 左下
+        cv2.rectangle(warped, (2330, 3358), (2480, 3508), (255, 255, 255), -1) # 右下
+
         return warped
 
     def _preprocess_char(self, cell):
-        # crop a bit more to remove grid lines
-        inner_margin = 10
+        # 1. 枠線を除去するために少し内側をクロップ
+        inner_margin = 15
         cell = cell[inner_margin:-inner_margin, inner_margin:-inner_margin]
         
+        # 2. グレースケール化とノイズ抑制
         gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
-        # Binarization
+        gray = cv2.medianBlur(gray, 3) # 小さな点ノイズを軽減
+        
+        # 3. 二値化（大津の二値化）
         _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         
-        # Noise removal
-        kernel = np.ones((2,2), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        # 4. 連結成分の抽出とフィルタリング（ゴミ除去）
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh)
         
-        # Check if empty
-        if cv2.countNonZero(thresh) < 50:
+        # 背景（label=0）以外の成分をチェック
+        # stats[i, cv2.CC_STAT_AREA] はその成分の面積
+        min_area = 150 # 閾値：これ以下の面積のものはゴミとして除去
+        
+        output = np.zeros_like(thresh)
+        found_character = False
+        
+        for i in range(1, num_labels):
+            if stats[i, cv2.CC_STAT_AREA] >= min_area:
+                output[labels == i] = 255
+                found_character = True
+        
+        # 5. 何も残らなかった場合や、あまりに白い部分が少ない場合は空とみなす
+        if not found_character or cv2.countNonZero(output) < 300:
             return None
             
-        return thresh
+        return output
 
 if __name__ == "__main__":
     # Test stub

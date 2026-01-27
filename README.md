@@ -24,26 +24,41 @@ uv sync
 フォントにしたい文字を書き込むためのテンプレート（`template.png`）を生成します。
 
 ```bash
-uv run python main.py generate-template
+uv run python main.py generate-template --chars [文字セットプリセット]
 ```
 
-`--chars` オプションで、特定の文字セットを指定することも可能です（デフォルトは常用ひらがな）。
+#### 文字セットプリセット
+`--chars` オプションには以下のプリセット名、または任意の文字列を指定できます。カンマ区切りで複数を組み合わせることも可能です。
+
+- `hiragana`: ひらがな (46文字)
+- `katakana`: カタカナ (46文字)
+- `alphabet`: 英字大文字・小文字 (52文字)
+- `number`: 数字 (10文字)
+- `symbol`: 主要な記号 (32文字)
+- `basic`: 上記すべてを合わせたもの
+
+※ 100文字を超える場合は、`template_1.png`, `template_2.png`のように自動で複数ページ出力されます。
 
 ### 2. 文字の記入とスキャン
 
-生成された `template.png` を印刷するか、タブレット等で文字を書き込みます。
+生成されたテンプレート画像を印刷するか、タブレット等で文字を書き込みます。
 
 - **注意**: 四隅の黒い正方形（マーカー）が隠れたり切れたりしないようにスキャンしてください。
 - ファイル形式は `.png` または `.jpg` を推奨します。
 
 ### 3. フォントの生成
 
-スキャンした画像を指定して、以下のコマンドを実行します。
+スキャンした画像を指定して、以下のコマンドを実行します。複数ページある場合は、画像パスを順番にすべて並べてください。
 
 ```bash
-uv run python main.py build [スキャンした画像パス] --output myfont.ttf --name "MyFontName"
+# 1枚の場合
+uv run python main.py build scan_1.png --chars hiragana --output myfont.ttf
+
+# 複数枚ある場合
+uv run python main.py build scan_1.png scan_2.png --chars basic --output myfont.ttf
 ```
 
+- `--chars`, `-c`: テンプレート生成時と同じプリセットまたは文字列（デフォルト: `hiragana`）
 - `--output`, `-o`: 出力するフォントのファイル名（デフォルト: `myfont.ttf`）
 - `--name`, `-n`: フォントシステム内での表示名（デフォルト: `MyHandwriting`）
 

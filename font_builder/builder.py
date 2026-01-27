@@ -41,17 +41,55 @@ class FontBuilderWrapper:
         metrics = {name: (self.units_per_em, 0) for name in glyphs.keys()}
         fb.setupHorizontalMetrics(metrics)
         
+        # ps_name must not contain spaces
+        ps_name = self.font_name.replace(" ", "")
+        
+        # 1. Add .notdef and space (Required for stability in Word/Excel)
+        if ".notdef" not in glyphs:
+            glyphs[".notdef"] = self._create_empty_glyph()
+        
+        if 32 not in cmap: # Space
+            space_name = "space"
+            glyphs[space_name] = self._create_empty_glyph()
+            cmap[32] = space_name
+
+        # Font setup
+        fb = FontBuilder(self.units_per_em, isTTF=True)
+        fb.setupGlyphOrder(list(glyphs.keys()))
+        fb.setupCharacterMap(cmap)
+        
+        # Metrics: all glyphs get 1000 unit width
+        metrics = {name: (self.units_per_em, 0) for name in glyphs.keys()}
+        fb.setupHorizontalMetrics(metrics)
+        
         fb.setupHorizontalHeader(ascent=self.ascender, descent=self.descender)
+        
         fb.setupNameTable({
+            "copyright": "Created with MyHandwriting CLI",
             "familyName": self.font_name,
             "styleName": "Regular",
-            "uniqueFontIdentifier": f"{self.font_name}:1.0.0",
+            "uniqueFontIdentifier": f"1.000;NONE;{ps_name}",
             "fullName": self.font_name,
-            "psName": self.font_name,
+            "version": "Version 1.000",
+            "psName": ps_name,
         })
         
-        fb.setupOS2(sTypoAscender=self.ascender, sTypoDescender=self.descender)
+        # Setup OS/2 table with Japanese code page bits
+        fb.setupOS2(
+            sTypoAscender=self.ascender, 
+            sTypoDescender=self.descender, 
+            usWinAscent=self.ascender, 
+            usWinDescent=abs(self.descender),
+            # Set CodePageRange to Japanese (bit 17: Shift-JIS, bit 0: Latin)
+            # This helps Word recognize it as a Japanese font
+        )
+        # Update OS/2 flags manually for better compatibility
+        fb.font['OS/2'].ulCodePageRange1 = 1 << 17 | 1 << 0
+        
         fb.setupPost()
+        # Set post table version to 2.0 for better name mapping
+        fb.font['post'].formatType = 2.0
+        
         fb.setupGlyf(glyphs)
         fb.save(output_path)
         print(f"Font saved to {output_path}")
