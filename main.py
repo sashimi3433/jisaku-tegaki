@@ -112,11 +112,14 @@ def generate_template(output, chars):
 
 @cli.command()
 @click.argument("image_paths", nargs=-1)
-@click.option("--output", "-o", default="myfont.ttf", help="出力フォント名 (.ttf)")
+@click.option("--output", "-o", default=None, help="出力フォント名（デフォルト：フォント名.ttf）")
 @click.option("--name", "-n", default="MyHandwriting", help="フォント名")
 @click.option("--chars", "-c", default=DEFAULT_CHARS, help="対象とする文字（文字列またはプリセット名）")
 def build(image_paths, output, name, chars):
     """スキャン画像（複数可）からフォントを生成します"""
+    if output is None:
+        output = f"{name}.ttf"
+
     if not image_paths:
         click.echo("Error: Please provide at least one scan image path.", err=True)
         return

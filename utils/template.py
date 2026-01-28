@@ -59,8 +59,17 @@ def create_template(output_path="template.png", grid_size=(10, 10), groups=None)
                     draw.line([left + 10, center_y, right - 10, center_y], fill=guide_color, width=1)
                     draw.line([center_x, top + 10, center_x, bottom - 10], fill=guide_color, width=1)
 
-                    # Draw character label
+                    # For alphabet, add baseline (80%) and mean line (40%) to match font metrics
                     char = char_list[idx]
+                    if label == "alphabet" or (char.isascii() and char.isalpha()):
+                        baseline_y = top + int(grid_height * 0.8)
+                        mean_line_y = top + int(grid_height * 0.4)
+                        # Slightly darker for baseline
+                        draw.line([left + 10, baseline_y, right - 10, baseline_y], fill=(220, 220, 220), width=1)
+                        # Slightly lighter for mean line
+                        draw.line([left + 10, mean_line_y, right - 10, mean_line_y], fill=(240, 240, 240), width=1)
+
+                    # Draw character label
                     draw.text((left + 5, top + 5), char, fill=(150, 150, 150), font=font)
 
             # Generate filename
